@@ -4,14 +4,14 @@
 // These values are placeholders — you can update them later when you have a Firebase project.
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCMfDNAWQtrJGijQLUC5KQWi5hVTgEvJTo",
-  authDomain: "zabingo-d2ed5.firebaseapp.com",
-  databaseURL: "https://zabingo-d2ed5-default-rtdb.firebaseio.com/",
-  projectId: "zabingo-d2ed5",
-  storageBucket: "zabingo-d2ed5.firebasestorage.app",
-  messagingSenderId: "75991744418",
-  appId: "1:75991744418:web:70afa1b06418ddc50ffcfb",
-  measurementId: "G-PJD0H9SY9Z"
+  apiKey: "AIzaSyC6_67MH7RSSgAH2cmSg1PPjerIX2aedoY",
+  authDomain: "wass-f2673.firebaseapp.com",
+  databaseURL: "https://wass-f2673-default-rtdb.firebaseio.com",
+  projectId: "wass-f2673",
+  storageBucket: "wass-f2673.firebasestorage.app",
+  messagingSenderId: "520744387854",
+  appId: "1:520744387854:web:6265fcfa45fdb892e4435f",
+  measurementId: "G-NXCVHTDHMZ"
 };
 
 // Firebase SDKs are loaded via CDN in index.html
