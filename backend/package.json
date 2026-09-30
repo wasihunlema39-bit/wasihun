@@ -1,7 +1,7 @@
 {
-  "name": "za-bingo-backend",
+  "name": "wasihun-backend",
   "version": "1.0.0",
-  "description": "Backend for ZA Bingo Telegram Mini App - Multiplayer bingo game",
+  "description": "Backend for wasihun Telegram Mini App - Multiplayer bingo game",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
