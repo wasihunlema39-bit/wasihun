@@ -8,8 +8,7 @@
     tg?.ready();
     tg?.expand();
     
-    const API = 'https://za-bingo-5a7e.onrender.com';
-    
+    const API = 'https://wasihun.onrender.com';
     // ── State ─────────────────────────────────────────────────────────────────────
     const state = {
       player:           null,        // { id, name, balance, history }
