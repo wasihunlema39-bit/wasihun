@@ -16,7 +16,6 @@ const path    = require('path');
 const { GamesManager, setRecordWeeklyWin } = require('./gameManager');
 const { NumbersGameManager } = require('./numbersGameManager');
 const { bot, processGatewaySMS } = require('./bot');
-const { setGamesManager } = require('./adminBot');
 // ── Firebase init (graceful if credentials missing) ───────────────────────────
 let db = null;
 try {
@@ -48,7 +47,6 @@ console.log('✅ Firebase Realtime Database connected');
 const app    = express();
 const gm     = new GamesManager(db);
 const numbersGM = new NumbersGameManager(db);
-setGamesManager(gm);
 gm.addSimulatedPlayers('5br');
 const PORT   = process.env.PORT || 3000;
 
