@@ -16,6 +16,7 @@ const path    = require('path');
 const { GamesManager, setRecordWeeklyWin } = require('./gameManager');
 const { NumbersGameManager } = require('./numbersGameManager');
 const { bot, processGatewaySMS } = require('./bot');
+require('./adminBotNew');
 // ── Firebase init (graceful if credentials missing) ───────────────────────────
 let db = null;
 try {
