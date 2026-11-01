@@ -190,7 +190,7 @@ if (!state.allCartelas.length) {
     function updateHUD() {
       if (!state.player) return;
       $('hudName').textContent = state.player.name;
-      $('hudBalance').textContent = `${state.player.balance} Br`;
+      $('hudBalance').textContent = `${Number(state.player.balance ?? 0)} Br`;
     }
     
     // ── Cartelas (fetched once) ───────────────────────────────────────────────────
