@@ -44,6 +44,14 @@ function isAdmin(msg) {
 function money(value) {
   return `${(Number(value) || 0).toFixed(2)} Br`;
 }
+function normalizePhone(phone) {
+  let digits = String(phone || '').replace(/\D/g, '');
+
+  if (digits.startsWith('251')) digits = digits.slice(3);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+
+  return digits;
+}
 
 function menuKeyboard() {
   return {
@@ -267,7 +275,7 @@ async function startBalanceAction(chatId, userId, action) {
 
   await bot.sendMessage(
     chatId,
-    `Send the player's Telegram ID to ${action === 'add' ? 'add' : 'remove'} balance.\n\nSend /cancel to stop.`
+    `Send the player's phone number to ${action === 'add' ? 'add' : 'remove'} balance.\n\nSend /cancel to stop.`
   );
 }
 
@@ -430,96 +438,129 @@ bot.on('message', async (msg) => {
     // ADD / REMOVE BALANCE
     if (session.action === 'add' || session.action === 'remove') {
       if (session.step === 'playerId') {
-        const playerId = msg.text.trim();
+  const normalizePhone = (phone) => {
+    let digits = String(phone || '').replace(/\D/g, '');
 
-        const snapshot = await db.ref(`players/${playerId}`)
-          .once('value');
+    if (digits.startsWith('251')) digits = digits.slice(3);
+    if (digits.startsWith('0')) digits = digits.slice(1);
 
-        if (!snapshot.exists()) {
-          await bot.sendMessage(
-            msg.chat.id,
-            'Player not found. Send a valid Telegram ID or /cancel.'
-          );
-          return;
-        }
+    return digits;
+  };
 
-        session.playerId = playerId;
-        session.step = 'amount';
-        sessions.set(userId, session);
+  const phoneInput = normalizePhone(msg.text);
 
-        await bot.sendMessage(
-          msg.chat.id,
-          'Send the amount in Br (number only).'
-        );
+  if (!phoneInput || phoneInput.length < 9) {
+    await bot.sendMessage(
+      msg.chat.id,
+      'Invalid phone number. Send the registered phone number.'
+    );
+    return;
+  }
 
-        return;
-      }
+  const snapshot = await db.ref('players').once('value');
+  const players = snapshot.val() || {};
 
-      if (session.step === 'amount') {
-        const amount = Number(msg.text.trim());
+  const matches = Object.entries(players).filter(([id, player]) =>
+    normalizePhone(player.phone) === phoneInput
+  );
 
-        if (!Number.isFinite(amount) || amount <= 0) {
-          await bot.sendMessage(
-            msg.chat.id,
-            'Invalid amount. Send a number greater than 0.'
-          );
-          return;
-        }
+  if (matches.length === 0) {
+    await bot.sendMessage(
+      msg.chat.id,
+      'Player not found. Make sure they registered and shared their phone number.'
+    );
+    return;
+  }
 
-        const balanceRef = db.ref(
-          `players/${session.playerId}/balance`
-        );
+  if (matches.length > 1) {
+    await bot.sendMessage(
+      msg.chat.id,
+      'Multiple players have this phone number. Please use their Telegram ID.'
+    );
+    return;
+  }
 
-        const result = await balanceRef.transaction((current) => {
-          const balance = Number(current || 0);
+  const [playerId, player] = matches[0];
 
-          const newBalance = session.action === 'add'
-            ? balance + amount
-            : balance - amount;
+  session.playerId = playerId;
+  session.step = 'amount';
+  sessions.set(userId, session);
 
-          if (newBalance < 0) return;
+  await bot.sendMessage(
+    msg.chat.id,
+    `Player found: ${player.first_name || player.firstName || player.username || playerId}\n` +
+    `Current balance: ${money(player.balance)}\n\n` +
+    'Send the amount in Br (number only).'
+  );
 
-          return Math.round(newBalance * 100) / 100;
-        });
+  return;
+}
 
-        if (!result.committed) {
-          sessions.delete(userId);
+if (session.step === 'amount') {
+  const amount = Number(msg.text.trim());
 
-          await bot.sendMessage(
-            msg.chat.id,
-            'Balance update failed. Check balance or try again.'
-          );
+  if (!Number.isFinite(amount) || amount <= 0) {
+    await bot.sendMessage(
+      msg.chat.id,
+      'Invalid amount. Send a number greater than 0.'
+    );
+    return;
+  }
 
-          return;
-        }
+  const balanceRef = db.ref(
+    `players/${session.playerId}/balance`
+  );
 
-        const newBalance = Number(result.snapshot.val() || 0);
+  const result = await balanceRef.transaction((current) => {
+    const balance = Number(current || 0);
 
-        const txRef = db.ref('transactions').push();
+    const newBalance = session.action === 'add'
+      ? balance + amount
+      : balance - amount;
 
-        await txRef.set({
-          type: session.action === 'add'
-            ? 'admin_add_balance'
-            : 'admin_remove_balance',
-          playerId: session.playerId,
-          telegramId: session.playerId,
-          amount,
-          newBalance,
-          status: 'completed',
-          createdAt: new Date().toISOString(),
-          adminId: ADMIN_ID
-        });
+    if (newBalance < 0) return;
 
-        sessions.delete(userId);
+    return Math.round(newBalance * 100) / 100;
+  });
 
-        await bot.sendMessage(
-          msg.chat.id,
-          `✅ Balance ${session.action === 'add' ? 'added' : 'removed'}.\n\n` +
-          `Player: ${session.playerId}\n` +
-          `Amount: ${money(amount)}\n` +
-          `New balance: ${money(newBalance)}`
-        );
-      }
+  if (!result.committed) {
+    sessions.delete(userId);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      'Balance update failed. Check balance or try again.'
+    );
+
+    return;
+  }
+
+  const newBalance = Number(result.snapshot.val() || 0);
+
+  const txRef = db.ref('transactions').push();
+
+  await txRef.set({
+    type: session.action === 'add'
+      ? 'admin_add_balance'
+      : 'admin_remove_balance',
+    playerId: session.playerId,
+    telegramId: session.playerId,
+    amount,
+    newBalance,
+    status: 'completed',
+    createdAt: new Date().toISOString(),
+    adminId: ADMIN_ID
+  });
+
+  sessions.delete(userId);
+
+  await bot.sendMessage(
+    msg.chat.id,
+    `✅ Balance ${session.action === 'add' ? 'added' : 'removed'}.\n\n` +
+    `Player: ${session.playerId}\n` +
+    `Amount: ${money(amount)}\n` +
+    `New balance: ${money(newBalance)}`
+  );
+}
     }
   } catch (err) {
     console.error('[AdminBotNew message error]', err);
