@@ -651,16 +651,26 @@ let gameManager = null;
 // BOT COMMANDS
 // ============================================================
 
-// /start - Register user and show main menu
+
+// /start - Register user and collect phone number
 bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
-
-  // Save user for future broadcasts
-  broadcastUsers[String(chatId)] = true;
-
   const tgId = String(msg.from.id);
   const firstName = msg.from.first_name || 'Player';
   const username = msg.from.username || '';
+
+  broadcastUsers[String(chatId)] = true;
+
+  const contactKeyboard = {
+    keyboard: [[
+      {
+        text: '📱 Share Contact',
+        request_contact: true
+      }
+    ]],
+    resize_keyboard: true,
+    one_time_keyboard: true
+  };
 
   try {
     const playerRef = db.ref(`players/${tgId}`);
@@ -668,94 +678,125 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     let player = snapshot.val();
 
     if (!player) {
-  // Register new player
+      player = {
+        telegram_id: tgId,
+        first_name: firstName,
+        username: username,
+        phone: '',
+        balance: 15,
+        games_played: 0,
+        games_won: 0,
+        registration_date: new Date().toISOString()
+      };
 
+      await playerRef.set(player);
 
+      await bot.sendPhoto(chatId, welcomePhoto, {
+        caption:
+          `👑 *እንኳን ደህና መጡ, ${firstName}!* \n\n` +
+          `🎁 *15 ብር ቦነስ ተሰጥቶዎታል!* \n\n` +
+          `📲 *ምዝገባዎን ለመጨረስ ስልክ ቁጥርዎን ያጋሩ።*`,
+        parse_mode: 'Markdown',
+        reply_markup: contactKeyboard
+      });
 
-  player = {
-    telegram_id: tgId,
-    first_name: firstName,
-    username: username,
-    phone: '',
-    balance: 15,
-games_played: 0,
-games_won: 0,
-    registration_date: new Date().toISOString(),
-
-
-  };
-
-  await playerRef.set(player);
-            // 
-
-      bot.sendPhoto(
-  chatId,
-  welcomePhoto,
-  {
-    caption:
-      `👑 *እንኳን ደህና መጡ, ${firstName}!*\n\n` +
-      `🎁 *15 ብር ቦነስ ተሰጥቶዎታል!*\n\n` +
-      `🎱 *እድል Bingo — ይጫወቱ፣ ያሸንፉ! 🏆*\n\n` +
-    
-      `📲 *ምዝገባዎን ለመጨረስ ስልክ ቁጥርዎን ያጋሩ።*\n\n` +
-      `****************👇👇👇****************`,
-    parse_mode: 'Markdown',
-    reply_markup: {
-      keyboard: [[
-        {
-          text: '📱 Share Contact',
-          request_contact: true
-        }
-      ]],
-      resize_keyboard: true,
-      one_time_keyboard: true
+      return;
     }
-  }
-);
-    } else {
-      showMainMenu(chatId);
+
+    // Update Telegram profile details without changing balance
+    await playerRef.update({
+      first_name: firstName,
+      username: username
+    });
+
+    // Existing player without phone: request contact
+    if (!player.phone || !String(player.phone).trim()) {
+      await bot.sendMessage(
+        chatId,
+        '📱 ምዝገባዎን ለመጨረስ ስልክ ቁጥርዎን ያጋሩ።',
+        { reply_markup: contactKeyboard }
+      );
+      return;
     }
+
+    // Existing player with phone
+    showMainMenu(chatId);
 
   } catch (error) {
     console.error('❌ /start error:', error);
-    bot.sendMessage(
+    await bot.sendMessage(
       chatId,
       '❌ Something went wrong. Please try again.'
     );
   }
 });
 
+
+
 // Handle contact sharing
 bot.on('contact', async (msg) => {
   const chatId = msg.chat.id;
   const tgId = String(msg.from.id);
-  const phone = msg.contact.phone_number;
 
   try {
-    await db.ref(`players/${tgId}/phone`).set(phone);
+    if (!msg.contact || !msg.contact.phone_number) {
+      await bot.sendMessage(chatId, '❌ Invalid contact. Please try again.');
+      return;
+    }
 
-    bot.sendMessage(chatId,
-  `✅ *የስልክ ቁጥርዎ ተመዝግቧል!*\n\n` +
-  `🎱 *እንኳን ወደ እድል Bingo በደህና መጡ! 🏆*\n\n` +
-  `🎮 *አሁን መጫወት ይችላሉ!*\n\n` +
-  
-  {
-      reply_markup: {
-        remove_keyboard: true
-      }
+    // Only accept the player's own Telegram contact
+    if (
+      msg.contact.user_id &&
+      String(msg.contact.user_id) !== tgId
+    ) {
+      await bot.sendMessage(
+        chatId,
+        '❌ Please share your own phone number.'
+      );
+      return;
+    }
+
+    const playerRef = db.ref(`players/${tgId}`);
+    const snapshot = await playerRef.once('value');
+
+    if (!snapshot.exists()) {
+      await bot.sendMessage(
+        chatId,
+        '❌ Please send /start first.'
+      );
+      return;
+    }
+
+    const phone = msg.contact.phone_number;
+
+    await playerRef.update({
+      phone: phone
     });
+
+    await bot.sendMessage(
+      chatId,
+      `✅ *የስልክ ቁጥርዎ ተመዝግቧል!*\n\n` +
+      `🎱 *እንኳን ወደ እድል Bingo በደህና መጡ!*`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          remove_keyboard: true
+        }
+      }
+    );
 
     showMainMenu(chatId);
 
   } catch (error) {
     console.error('❌ Contact save error:', error);
 
-    bot.sendMessage(
+    await bot.sendMessage(
       chatId,
       '❌ Could not save your phone number. Please try again.'
     );
   }
 });
+
 
 // ============================================================
 // MAIN MENU
