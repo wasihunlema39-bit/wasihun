@@ -1311,7 +1311,10 @@ if (winnerGrid && winner.cartelaGrid) {
         });
     
         state.player = data.player;
-        initApp();
+initApp();
+
+// Refresh balance every 5 seconds
+setInterval(refreshPlayer, 5000);
       } catch (e) {
         toast('Could not load your Telegram account: ' + e.message, 'error');
       }
