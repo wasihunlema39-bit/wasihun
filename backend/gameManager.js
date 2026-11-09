@@ -403,13 +403,6 @@ this._simulatorScheduler = setInterval(() => {
   async getOrCreatePlayer(playerId, name, username = '') {
   const key = String(playerId);
 
-  // 1. Check memory cache first
-  if (this._playerCache && this._playerCache.has(key)) {
-    return {
-      id: key,
-      ...this._playerCache.get(key)
-    };
-  }
 
   if (this.db) {
     const ref = this.db.ref(`players/${key}`);
