@@ -63,7 +63,8 @@ const WINNER_SHARE = 0.80;
 const SIM_STARTING_BALANCE = 999999;
 
 const SIMULATED_PLAYERS = [
-  // ───── 5 BR GROUP: 1–20 ─────
+
+  // ───── 5 BR GROUP: 1–40 ─────
   '@tame',
   '🤘',
   'ማሜ',
@@ -84,8 +85,28 @@ const SIMULATED_PLAYERS = [
   'Ggz',
   'Dave',
   'መካሽ',
+  'BiruX',
+  'HabeshaBoy',
+  'Abush',
+  'Kalu',
+  'NatiX',
+  'Beki',
+  'Jano',
+  'MickyB',
+  'Zema',
+  'Luli',
+  'Chuchu',
+  'Babi',
+  'Kuku',
+  'Dagi',
+  'Wedi',
+  'TeddyX',
+  'Mamo',
+  'Gutu',
+  'Bontu',
+  'Shushu',
 
-  // ───── 10 BR GROUP: 21–40 ─────
+  // ───── 10 BR GROUP: 41–70 ─────
   'cr7',
   'Dangote',
   '@mente',
@@ -106,28 +127,24 @@ const SIMULATED_PLAYERS = [
   'Meron',
   'Henok',
   'Sami',
+  'NatiBoy',
+  'HabeshKing',
+  'BekiX',
+  'Jossy',
+  'Keno',
+  'Leyo',
+  'MikiX',
+  'BabiBoy',
+  'Zuzu',
+  'Roro',
 
-  // ───── 20 BR GROUP: 41–60 ─────
+  // ───── 20 BR GROUP: 71–75 ─────
   'Bini',
   'Kalki',
   'Micky',
   'Roni',
-  'ሚካኤል',
-  'ሳራ',
-  'ዮሴፍ',
-  'ሀና',
-  'ብርሃኑ',
-  'ማርታ',
-  'ናትናኤል',
-  'ሰላም',
-  'Alex',
-  'Danny',
-  'Lucky',
-  'King',
-  'SamiBoy',
-  'Winner',
-  'Flash',
-  'Boss'
+  'ሚካኤል'
+
 ];
 
 // ─────────────────────────────────────────────
@@ -139,22 +156,22 @@ const SIMULATOR_SCHEDULES = {
 '5br': [
   { start: '09:15', end: '09:20', counts: [8, 10, 11] },
   { start: '09:20', end: '11:25', counts: [12, 13, 14, 15] },
-  { start: '11:25', end: '16:40', counts: [17, 18, 19, 20] },
-  { start: '16:40', end: '23:45', counts: [17, 18, 19, 20] },
+  { start: '11:25', end: '16:40', counts: [27, 28, 29] },
+  { start: '16:40', end: '23:45', counts: [ 38, 39, 40] },
   { start: '23:45', end: '01:03', counts: [15, 16, 17] },
-  { start: '01:03', end: '01:30', counts: [9, 10, 11] }
+  { start: '01:03', end: '09:15', counts: [1] }
 ],
 
 '10br': [
   { start: '11:11', end: '11:16', counts: [8, 10, 11] },
   { start: '11:16', end: '12:21', counts: [8, 10, 11] },
   { start: '12:21', end: '14:36', counts: [12, 13, 14] },
-  { start: '14:36', end: '01:41', counts: [17, 18, 19, 20] },
-  { start: '01:41', end: '02:56', counts: [17, 18, 19, 20] }
+  { start: '14:36', end: '01:41', counts: [27, 28, 29, 30] },
+  { start: '01:41', end: '11:11', counts: [0] }
 ],
 
 '20br': [
-  { start: '18:45', end: '2:44', counts: [9, 10, 11] }
+  { start: '18:45', end: '0:44', counts: [9, 10, 11] }
 ]
 };
 
@@ -403,6 +420,13 @@ this._simulatorScheduler = setInterval(() => {
   async getOrCreatePlayer(playerId, name, username = '') {
   const key = String(playerId);
 
+  // 1. Check memory cache first
+  if (this._playerCache && this._playerCache.has(key)) {
+    return {
+      id: key,
+      ...this._playerCache.get(key)
+    };
+  }
 
   if (this.db) {
     const ref = this.db.ref(`players/${key}`);
@@ -693,9 +717,9 @@ async addSimulatedPlayers(roomId = '5br') {
 
   // Randomly choose which simulated players participate
   const SIMULATOR_GROUPS = {
-  '5br': SIMULATED_PLAYERS.slice(0, 20),
-  '10br': SIMULATED_PLAYERS.slice(20, 40),
-  '20br': SIMULATED_PLAYERS.slice(40, 60)
+  '5br': SIMULATED_PLAYERS.slice(0, 40),
+  '10br': SIMULATED_PLAYERS.slice(40, 70),
+  '20br': SIMULATED_PLAYERS.slice(70, 75)
 };
 
 const roomPlayers = SIMULATOR_GROUPS[roomId] || [];
@@ -734,7 +758,7 @@ const selectedPlayers = players.slice(
     }
 
     // Each simulated player gets 2–4 cartelas
-    const count = 2 + Math.floor(Math.random() * 3);
+    const count = 1;
 
     // Get cartelas that are not already reserved
     const available = cartelas.filter(
