@@ -1057,22 +1057,37 @@ else if (data.startsWith('deposit_method_')) {
   );
 } else if (method === 'mpesa') {
   bot.sendMessage(
-    chatId,
-    `💚 M-Pesa Account: \`0717310753\`\n\n` +
-    `1️⃣ Send the exact deposit amount to the M-Pesa number above.\n\n` +
-    `2️⃣ After payment, copy the full successful M-Pesa SMS.\n\n` +
-    `3️⃣ Paste the SMS here in Telegram for verification.\n\n` +
-    `⚠️ Make sure the payment amount matches your deposit amount.`,
-    { parse_mode: 'Markdown' }
-  );
+  chatId,
+  `💚 የM-Pesa አካውንት ቁጥር: \`0717310753\`\n\n` +
+  `1️⃣ ማስገባት የሚፈልጉትን ትክክለኛ የብር መጠን ወደ ላይ ባለው የM-Pesa ቁጥር ይላኩ።\n\n` +
+  `2️⃣ ከከፈሉ በኋላ የደረሰዎትን ሙሉ የስኬት SMS ይቅዱ።\n\n` +
+  `3️⃣ የቀዱትን SMS እዚህ ወደ ቦቱ ይላኩ።\n\n` +
+  `⚠️ የሚልኩት የብር መጠን ከገቢ ማስገቢያ ጥያቄዎ ጋር ተመሳሳይ መሆኑን ያረጋግጡ።`,
+  { parse_mode: 'Markdown' }
+);
 }
 }
+
 // Withdraw method selection
 else if (data === 'withdraw_source_main') {
 
+  withdrawSessions[chatId] = {
+    source: 'main',
+    step: 'method'
+  };
+
   await bot.sendMessage(
     chatId,
-    '⚠️ የገንዘብ ማውጣት አገልግሎት ለጊዜው አይሰራም። እባክዎ ቆይተው እንደገና ይሞክሩ።'
+    '💳 የገንዘብ ማውጫ ዘዴ ይምረጡ 👇',
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📱 Telebirr', callback_data: 'withdraw_method_telebirr' }],
+          [{ text: '🏦 CBE Birr', callback_data: 'withdraw_method_cbe' }],
+          [{ text: '💚 M-Pesa', callback_data: 'withdraw_method_mpesa' }]
+        ]
+      }
+    }
   );
 
   return;
@@ -1080,7 +1095,8 @@ else if (data === 'withdraw_source_main') {
 
 else if (
   data === 'withdraw_method_telebirr' ||
-  data === 'withdraw_method_cbe'
+  data === 'withdraw_method_cbe' ||
+  data === 'withdraw_method_mpesa'
 ) {
   const session = withdrawSessions[chatId];
 
@@ -1096,14 +1112,13 @@ else if (
   session.method =
     data === 'withdraw_method_cbe'
       ? 'cbe'
-      : 'telebirr';
+      : data === 'withdraw_method_mpesa'
+        ? 'mpesa'
+        : 'telebirr';
 
   session.step = 'amount';
 
-  const sourceName =
-    session.source === 'main'
-      ? 'Main Balance'
-      : 'Referral Bonus';
+  const sourceName = 'Main Balance';
 
   await bot.sendMessage(
     chatId,
@@ -1114,6 +1129,7 @@ else if (
     }
   );
 }
+
   
   // Admin: Approve withdrawal
   else if (data.startsWith('approve_withdraw_')) {
@@ -1520,28 +1536,26 @@ if (withdrawSessions[chatId]) {
       return;
     }
 
-    // TELEBIRR → PHONE NUMBER
-    const normalizedPhone = input.replace(/\D/g, '');
+    // TELEBIRR / M-PESA → PHONE NUMBER
+const normalizedPhone = input.replace(/\D/g, '');
 
-    if (
-      !(
-        normalizedPhone.startsWith('09') &&
-        normalizedPhone.length === 10
-      ) &&
-      !(
-        normalizedPhone.startsWith('2519') &&
-        normalizedPhone.length === 12
-      )
-    ) {
-      await bot.sendMessage(
-        chatId,
-        `❌ የተሳሳተ የስልክ ቁጥር ነው።\n\n` +
-        `ለምሳሌ፦ 09XXXXXXXX`
-      );
-      return;
-    }
+const validPhone =
+  session.method === 'mpesa'
+    ? /^07\d{8}$/.test(normalizedPhone)
+    : /^09\d{8}$/.test(normalizedPhone) ||
+      /^2519\d{8}$/.test(normalizedPhone);
 
-    session.phone = input;
+if (!validPhone) {
+  await bot.sendMessage(
+    chatId,
+    session.method === 'mpesa'
+      ? '❌ Enter a valid M-Pesa number starting with 07.'
+      : '❌ Enter a valid Telebirr number starting with 09.'
+  );
+  return;
+}
+
+session.phone = normalizedPhone;
 
     // Telebirr continues to create the request below.
   }
@@ -1579,11 +1593,11 @@ if (withdrawSessions[chatId]) {
   }
 
   if (
-    session.method === 'telebirr' &&
-    !session.phone
-  ) {
-    return;
-  }
+  (session.method === 'telebirr' || session.method === 'mpesa') &&
+  !session.phone
+) {
+  return;
+}
 
   const phone = session.phone;
   const requestedAmount = Number(session.amount);
@@ -1724,10 +1738,12 @@ balanceDeducted: true,
     `Username: @${player.username || 'N/A'}\n` +
     `Amount: ${Number(session.amount).toFixed(2)} Br\n` +
     `Method: ${
-      session.method === 'telebirr'
-        ? 'Telebirr'
-        : 'CBE Birr'
-    }\n` +
+  session.method === 'telebirr'
+    ? 'Telebirr'
+    : session.method === 'mpesa'
+      ? 'M-Pesa'
+      : 'CBE Birr'
+}\n` +
     `Phone/Account: ${phone}\n` +
     `${
       session.method === 'cbe'
@@ -1751,8 +1767,10 @@ balanceDeducted: true,
     `💰 መጠን: ${Number(session.amount).toFixed(2)} Br\n` +
     `💳 መንገድ: ${
       session.method === 'telebirr'
-        ? 'Telebirr'
-        : 'CBE Birr'
+  ? 'Telebirr'
+  : session.method === 'mpesa'
+    ? 'M-Pesa'
+    : 'CBE Birr'
     }\n` +
     `📱 ${
       session.method === 'cbe'
