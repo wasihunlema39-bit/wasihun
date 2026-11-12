@@ -74,6 +74,30 @@ function parseDepositSMS(text) {
   };
 }
 
+function parseMPESADepositSMS(text) {
+  if (!text) return null;
+
+  // Find amount
+  const amountMatch = text.match(
+    /([\d,]+(?:\.\d{1,2})?)\s*(?:Br|ETB|ብር)/i
+  );
+
+  // Find transaction ID using its label
+  const transactionMatch = text.match(
+    /(?:transaction\s*ID|transaction\s*reference|reference|receipt\s*number|የገንዘብ\s*ዝውውር\s*መለያ\s*ቁጥር)\s*[:#]?\s*([A-Z0-9]{8,})/i
+  );
+
+  if (!amountMatch || !transactionMatch) return null;
+
+  return {
+    amount: Number(amountMatch[1].replace(/,/g, '')),
+    transactionId: transactionMatch[1].toUpperCase(),
+    bank: 'M-PESA',
+    type: 'received'
+  };
+}
+
+
 function parseCBEBirrDepositSMS(text) {
   if (!text) return null;
 
@@ -404,7 +428,7 @@ async function processGatewaySMS(forwardedText) {
   try {
 
   if (!forwardedText) return;
-    const senderMatch = forwardedText.match(/^From:\s*(\d+|CBEBirr|CBE)/i);
+    const senderMatch = forwardedText.match(/^From:\s*(\d+|CBEBirr|MPESA)/i);
 
     if (!senderMatch) {
       console.log('❌ SMS sender not found');
@@ -416,8 +440,8 @@ async function processGatewaySMS(forwardedText) {
    // TRUST TELEBIRR + CBE SMS SENDERS
 if (
   sender !== '127' &&
-  sender.toUpperCase() !== 'CBE' &&
-  sender.toUpperCase() !== 'CBEBIRR'
+  sender.toUpperCase() !== 'CBEBIRR' &&
+  sender.toUpperCase() !== 'MPESA'
 ) {
   console.log(
     `❌ Unauthorized SMS sender: ${sender}`
@@ -432,7 +456,7 @@ console.log(`✅ Authorized SMS sender: ${sender}`);
     // --------------------------------------------------------
 
     const smsText = forwardedText
-  .replace(/^From:\s*(?:\d+|CBEBirr|CBE)\s*/i, '')
+  .replace(/^From:\s*(?:\d+|CBEBirr|MPESA)\s*/i, '')
   .replace(/^Time:\s*[^\n\r]*/i, '')
   .trim();
 
@@ -446,7 +470,13 @@ console.log(`✅ Authorized SMS sender: ${sender}`);
     // --------------------------------------------------------
 // DEPOSIT SMS — EXISTING FORMAT
 // --------------------------------------------------------
-const smsData = parseDepositSMS(smsText);
+const mpesaData = parseMPESADepositSMS(smsText);
+
+if (mpesaData) {
+  await storeOfficialDeposit(smsText, mpesaData);
+  return;
+}
+    const smsData = parseDepositSMS(smsText);
 
 if (smsData) {
   await storeOfficialDeposit(smsText, smsData);
@@ -1005,7 +1035,7 @@ else if (data.startsWith('deposit_method_')) {
   if (method === 'telebirr') {
   bot.sendMessage(
     chatId,
-    `💳 የቴሌብር አካውንት: \`0985661720\`\n\n` +
+    `💳 የቴሌብር አካውንት: \`0910859060\`\n\n` +
     `1️⃣ ከላይ ባለው የቴሌብር አካውንት ብር ያስገቡ\n\n` +
     `2️⃣ የምትልኩት የገንዘብ መጠን እና እዚህ ላይ እንዲሞላልዎ የምታስገቡት የብር መጠን ተመሳሳይ መሆኑን እርግጠኛ ይሁኑ\n\n` +
     `3️⃣ ብሩን ስትልኩ የከፈላችሁበትን መረጃ የያዘ አጭር የጹሁፍ መልእክት (SMS) ከቴሌብር ይደርሳችኋል\n\n` +
@@ -1016,13 +1046,23 @@ else if (data.startsWith('deposit_method_')) {
 } else if (method === 'cbe') {
   bot.sendMessage(
     chatId,
-`💳 CBE Birr አካውንት: \`0985661720\`\n\n` +
+`💳 CBE Birr አካውንት: \`0910859060\`\n\n` +
 `1️⃣ ከላይ ባለው CBE Birr አካውንት ብር ያስገቡ\n\n` +
 `2️⃣ የምትልኩት የገንዘብ መጠን እና እዚህ ላይ እንዲሞላልዎ የምታስገቡት የብር መጠን ተመሳሳይ መሆኑን እርግጠኛ ይሁኑ\n\n` +
 `3️⃣ ብሩን ስትልኩ የከፈላችሁበትን መረጃ የያዘ አጭር የጹሁፍ መልእክት (SMS) ከCBE Birr ይደርሳችኋል\n\n` +
 `4️⃣ የደረሳችሁን SMS ሙሉውን Copy በማድረግ ከታች ባለው የቴሌግራም የጹሁፍ ማስገቢያ ላይ Paste በማድረግ ይላኩት\n\n` +
 `⚠️ ማሳሰቢያ: በCBE Birr አካውንት ብቻ ብር መላካችሁን እርግጠኛ ይሁኑ\n` +
 `የከፈላችሁበትን SMS ሙሉውን እዚህ ላይ ያስገቡት 👇👇👇`,
+    { parse_mode: 'Markdown' }
+  );
+} else if (method === 'mpesa') {
+  bot.sendMessage(
+    chatId,
+    `💚 M-Pesa Account: \`0717310753\`\n\n` +
+    `1️⃣ Send the exact deposit amount to the M-Pesa number above.\n\n` +
+    `2️⃣ After payment, copy the full successful M-Pesa SMS.\n\n` +
+    `3️⃣ Paste the SMS here in Telegram for verification.\n\n` +
+    `⚠️ Make sure the payment amount matches your deposit amount.`,
     { parse_mode: 'Markdown' }
   );
 }
@@ -1140,10 +1180,11 @@ if (depositSessions[chatId] && depositSessions[chatId].step === 'amount') {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: ' Telebirr', callback_data: 'deposit_method_telebirr' }],
-          [{ text: ' CBE Birr', callback_data: 'deposit_method_cbe' }],
-          [{ text: '🔙 Back', callback_data: 'back_to_menu' }]
-        ]
+  [{ text: '📱 Telebirr', callback_data: 'deposit_method_telebirr' }],
+  [{ text: '🏦 CBE Birr', callback_data: 'deposit_method_cbe' }],
+  [{ text: '💚 M-Pesa', callback_data: 'deposit_method_mpesa' }],
+  [{ text: '🔙 Back', callback_data: 'back_to_menu' }]
+]
       }
     }
   );
