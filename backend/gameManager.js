@@ -1076,8 +1076,6 @@ _checkSimulatedBingo(room) {
 
   for (const player of room.players) {
 
-    // Only simulated players
-    if (!String(player.id).startsWith('sim_')) continue;
 
     const cartelas = room.playerCartelas[player.id] || [];
 
